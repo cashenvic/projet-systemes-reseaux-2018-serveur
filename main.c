@@ -20,8 +20,23 @@
 #include <netinet/in.h>
 #include <unistd.h>
 
-void creation_process();
-void servir_client();
+#define N_PORT 20000
+#define MAX_CLIENTS 10
+#define T_BUFF 256
+
+//_(°_°)_Tous les prototypes devront finir dans des fichiers headers (*.h)
+
+/** @brief Cree un processus fils qui se chargera de traiter la demande du client
+ *  @param int socket_client : Le socket (descripteur de fichier) qu'il faut servir, c'est la socket du client
+ *  @return void : Pas de valeur de retour
+ **/
+void creation_process(int socket_client);
+
+/** @brief Méthode de traitement la demande du client
+ *  @param int socket_client : Le socket (descripteur de fichier) qu'il faut servir, c'est la socket du client
+ *  @return void : Pas de valeur de retour
+ **/
+void servir_client(int socket_client);
 
 void end_of_service() {
     wait(NULL);
@@ -29,60 +44,61 @@ void end_of_service() {
 
 int main(int argc, char** argv) {
     //declaration des variables
-    int socketServ, socket_client;
+    int socket_server, socket_client;
     int loop = 1;
     struct sigaction sign; /* déclaration d'une variable de type struct sigaction */
-    struct sockaddr_in adresse;
-    int n_port = 20000;
+    struct sockaddr_in server_add, client_add;
+    int client_add_len;
     int binded;
-    const int max_clients = 10;
+    char buffer[T_BUFF];
 
 
     sign.sa_handler = end_of_service; /* le champ sa_handler de cette variable reçoit (le nom de) la fonction sur laquellele déroutement devra se faire */
     sign.sa_flags = SA_RESTART; /* cela permettra d'eviter l'interruption de "accept" par la reception du SIGCHLD */
     sigaction(SIGCHLD, &sign, NULL);
 
-
-    socketServ = socket(AF_INET, SOCK_STREAM, 0);
     //preparation des champs pour sockaddr_in adresse
-    adresse.sin_family = AF_INET;
-    adresse.sin_port = htons(n_port);
-    adresse.sin_addr.s_addr = htonl(INADDR_ANY);
+    server_add.sin_family = AF_INET;
+    server_add.sin_port = htons(N_PORT);
+    server_add.sin_addr.s_addr = htonl(INADDR_ANY);
 
+    socket_server = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (socketServ == -1) {
+    if (socket_server == -1) {
         perror("socketServ");
         exit(-1);
     }
 
     //attachement de la socket d'ecoute à une adresse
 
-    binded = bind(socketServ, (struct sockaddr *) &adresse, sizeof (adresse));
+    binded = bind(socket_server, (struct sockaddr *) &server_add, sizeof (server_add));
     if (binded == -1) {
         perror("bind");
         exit(-1);
     }
 
     //ouverture du service sur la socket d'ecoute
-    if (listen(socketServ, max_clients) == -1) {
+    if (listen(socket_server, MAX_CLIENTS) == -1) {
         perror("listen");
         exit(-1);
     }
 
-    socket_client = accept(socketServ, (struct sockaddr *) adresse, sizeof (adresse));
+    printf("Attention accept arrive...");
+    client_add_len = sizeof (server_add);
     while (loop) {
+        socket_client = accept(socket_server, (struct sockaddr *) &client_add, &client_add_len);
         if (socket_client == -1) {
             perror("accept");
             exit(-1);
         }
-        creation_process();
+        creation_process(socket_client);
         switch (fork()) {
             case -1:
                 perror("fork");
                 exit(-1);
             case 0:
-                servir_client();
-                close(socketServ);
+                servir_client(socket_client);
+                close(socket_server);
                 break;
             default:
                 //fermer la socket de service
@@ -92,7 +108,7 @@ int main(int argc, char** argv) {
     return (EXIT_SUCCESS);
 }
 
-void creation_process() {
+void creation_process(int socket_client) {
     /*switch (fork()) {
                 case -1:
                     perror("fork");
@@ -106,7 +122,7 @@ void creation_process() {
             }*/
 }
 
-void servir_client() {
+void servir_client(int socket_client) {
     //fermer la socket d'ecoute
     //close(socketServ);
 }
