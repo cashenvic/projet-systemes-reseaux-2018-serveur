@@ -22,7 +22,7 @@
 
 #define N_PORT 20000
 #define MAX_CLIENTS 10
-#define T_BUFF 256
+#define T_BUFF 1024
 
 //_(°_°)_Tous les prototypes devront finir dans des fichiers headers (*.h)
 
@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
     struct sigaction sign; /* déclaration d'une variable de type struct sigaction */
     struct sockaddr_in server_add, client_add;
     int client_add_len;
-    int binded;
+    int binded, n;
     char buffer[T_BUFF];
 
 
@@ -58,9 +58,9 @@ int main(int argc, char** argv) {
     sigaction(SIGCHLD, &sign, NULL);
 
     //preparation des champs pour sockaddr_in adresse
-    server_add.sin_family = AF_INET;
-    server_add.sin_port = htons(N_PORT);
-    server_add.sin_addr.s_addr = htonl(INADDR_ANY);
+    client_add.sin_family = AF_INET;
+    client_add.sin_port = htons(N_PORT);
+    client_add.sin_addr.s_addr = htonl(INADDR_ANY);
 
     socket_server = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -70,20 +70,21 @@ int main(int argc, char** argv) {
     }
 
     //attachement de la socket d'ecoute à une adresse
-
-    binded = bind(socket_server, (struct sockaddr *) &server_add, sizeof (server_add));
+    printf("bind...\n");
+    binded = bind(socket_server, (struct sockaddr *) &client_add, sizeof (client_add));
     if (binded == -1) {
         perror("bind");
         exit(-1);
     }
 
     //ouverture du service sur la socket d'ecoute
+    printf("listen...\n");
     if (listen(socket_server, MAX_CLIENTS) == -1) {
         perror("listen");
         exit(-1);
     }
 
-    printf("Attention accept arrive...");
+    printf("arrive...\n");
     client_add_len = sizeof (server_add);
     while (loop) {
         socket_client = accept(socket_server, (struct sockaddr *) &client_add, &client_add_len);
@@ -99,7 +100,10 @@ int main(int argc, char** argv) {
             case 0:
                 servir_client(socket_client);
                 close(socket_server);
-                break;
+                while (read(socket_client, buffer, T_BUFF)) {
+                    printf("Reçu: %s", buffer);
+                }                
+                exit(0);
             default:
                 //fermer la socket de service
                 close(socket_client);
