@@ -19,6 +19,7 @@
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <string.h>
 
 #define N_PORT 20000
 #define MAX_CLIENTS 10
@@ -37,7 +38,21 @@ void creation_process(int socket_client, int socket_server);
  *  @param int socket_client : Le socket (descripteur de fichier) qu'il faut servir, c'est la socket du client
  *  @return void : Pas de valeur de retour
  **/
-void servir_client(int socket_client, char *buffer);
+void servir_client(int socket_client);
+
+/** @brief Lis un fichier depuis le repertoire du client et l'envoie au serveur
+ *  @param int socket : socket dans lequel il ecrit
+ *  @param char *cheminFichier : chemin du fichier à lire
+ *  @return void
+ **/
+void receptionFichier(int socket, char *buffer);
+
+/** @brief Lis un fichier depuis le repertoire du client et l'envoie au serveur
+ *  @param int socket : socket dans lequel il ecrit
+ *  @param char *cheminFichier : chemin du fichier à lire
+ *  @return void
+ **/
+void envoiFichier(int socket, char *cheminFichier, char *buffer);
 
 void end_of_service() {
     wait(NULL);
@@ -98,14 +113,12 @@ int main(int argc, char** argv) {
 }
 
 void creation_process(int socket_client, int socket_server) {
-    int n;
-    char buffer[T_BUFF];
     switch (fork()) {
         case -1:
             perror("fork");
             exit(-1);
         case 0:
-            servir_client(socket_client, buffer);
+            servir_client(socket_client);
             close(socket_server);
             exit(0);
         default:
@@ -114,9 +127,75 @@ void creation_process(int socket_client, int socket_server) {
     }
 }
 
-void servir_client(int socket_client, char *buffer) {
-    while (read(socket_client, buffer, T_BUFF)) {
-        printf("Reçu: %s", buffer);
+void servir_client(int socket_client) {
+    int n;
+    char buffer[T_BUFF];
+    //recuperer la requete du client soit Demande d'image ou envoi d'image
+    read(socket_client, &n, sizeof (int));
+    if (n == 1) {
+        printf("en attente d'un fichier\n");
+        receptionFichier(socket_client, buffer);
+    } else if (n == 2) {
+        printf("envoi d'un fichier\n");
+        envoiFichier(socket_client, "djeliba.png", buffer);
+    } else {
+        //envoi code d'ereur??
     }
 }
 
+void sendToClient(int socket, char *buffer) {
+    if (write(socket, buffer, strlen(buffer)) == -1) {
+        perror("send");
+        exit(-1);
+    }
+}
+
+void receptionFichier(int socket, char *buffer) {
+    char* recu;
+    while (read(socket, buffer, T_BUFF)) {
+        strcat(recu, buffer);
+        printf("Reçu wr: %s", recu);
+        printf("Reçu b: %s", buffer);
+    }
+    printf("Reçu: %s", recu);
+    //doit appeler la verification d'iamges
+}
+
+void envoiFichier(int socket, char *cheminFichier, char *buffer) {
+    //lis le fichier à partir du rep client
+    FILE *fichier;
+    char ch;
+    int i = 0;
+
+    if ((fichier = fopen(cheminFichier, "r")) == NULL) {
+        perror("fopen");
+        exit(-1);
+    }
+    printf("successfull opening of file %s\n", cheminFichier);
+
+    while ((ch = fgetc(fichier)) != EOF) {
+        printf("%c\n", ch);
+        printf("%d\n", i);
+        i++;
+    }
+    while ((ch = fgetc(fichier)) != EOF) {
+        strcat(buffer, &ch);
+        if ((i == T_BUFF - 1)) {
+            sendToClient(socket, buffer);
+            printf("Envoyé: %s\n", buffer);
+            i = 0;
+            strcpy(buffer, "");
+            //strcat(buffer, &ch);
+        }
+        i++;
+    }
+    if (strcmp(buffer, "") != 0) {
+        sendToClient(socket, buffer);
+        printf("Envoyé: %s\n", buffer);
+        strcpy(buffer, "");
+    }
+
+    fclose(fichier);
+
+    //ecrire dans la socket serveur
+}
