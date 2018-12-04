@@ -28,15 +28,16 @@
 
 /** @brief Cree un processus fils qui se chargera de traiter la demande du client
  *  @param int socket_client : Le socket (descripteur de fichier) qu'il faut servir, c'est la socket du client
+ *  @param int socket_server : Le socket (descripteur de fichier) qu'il faut fermer, c'est la socket du père
  *  @return void : Pas de valeur de retour
  **/
-void creation_process(int socket_client);
+void creation_process(int socket_client, int socket_server);
 
 /** @brief Méthode de traitement la demande du client
  *  @param int socket_client : Le socket (descripteur de fichier) qu'il faut servir, c'est la socket du client
  *  @return void : Pas de valeur de retour
  **/
-void servir_client(int socket_client);
+void servir_client(int socket_client, char *buffer);
 
 void end_of_service() {
     wait(NULL);
@@ -46,11 +47,10 @@ int main(int argc, char** argv) {
     //declaration des variables
     int socket_server, socket_client;
     int loop = 1;
+    int binded;
+    int client_add_len;
     struct sigaction sign; /* déclaration d'une variable de type struct sigaction */
     struct sockaddr_in server_add, client_add;
-    int client_add_len;
-    int binded, n;
-    char buffer[T_BUFF];
 
 
     sign.sa_handler = end_of_service; /* le champ sa_handler de cette variable reçoit (le nom de) la fonction sur laquellele déroutement devra se faire */
@@ -92,42 +92,31 @@ int main(int argc, char** argv) {
             perror("accept");
             exit(-1);
         }
-        creation_process(socket_client);
-        switch (fork()) {
-            case -1:
-                perror("fork");
-                exit(-1);
-            case 0:
-                servir_client(socket_client);
-                close(socket_server);
-                while (read(socket_client, buffer, T_BUFF)) {
-                    printf("Reçu: %s", buffer);
-                }                
-                exit(0);
-            default:
-                //fermer la socket de service
-                close(socket_client);
-        }
+        creation_process(socket_client, socket_server);
     }
     return (EXIT_SUCCESS);
 }
 
-void creation_process(int socket_client) {
-    /*switch (fork()) {
-                case -1:
-                    perror("fork");
-                    exit(-1);
-                case 0:
-                    servir_client();
-                    break;
-                default:
-                    //fermer la socket de service
-                    close(socket_client);
-            }*/
+void creation_process(int socket_client, int socket_server) {
+    int n;
+    char buffer[T_BUFF];
+    switch (fork()) {
+        case -1:
+            perror("fork");
+            exit(-1);
+        case 0:
+            servir_client(socket_client, buffer);
+            close(socket_server);
+            exit(0);
+        default:
+            //fermer la socket de service
+            close(socket_client);
+    }
 }
 
-void servir_client(int socket_client) {
-    //fermer la socket d'ecoute
-    //close(socketServ);
+void servir_client(int socket_client, char *buffer) {
+    while (read(socket_client, buffer, T_BUFF)) {
+        printf("Reçu: %s", buffer);
+    }
 }
 
