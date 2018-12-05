@@ -23,7 +23,7 @@
 
 #define N_PORT 20000
 #define MAX_CLIENTS 10
-#define T_BUFF 1024
+#define T_BUFF 1000*1024
 
 /** @brief Represente une image avec le nom et le contenu du fichier
  *  @struct
@@ -74,7 +74,7 @@ void create_fichier(char *chemin, char *mode, char *buffer);
  *  @param image img : fichier dans lequel le fichier recompsé sera mis
  *  @return void
  **/
-void recompose(char buffer_from_server[], image img[1]);
+void recompose(char *buffer_from_server, image img);
 
 void end_of_service() {
     wait(NULL);
@@ -179,22 +179,27 @@ void sendToClient(int socket, char *buffer) {
 
 void receptionFichier(int socket, char *buffer) {
     FILE * fichier = NULL;
+    image img;
     /*
         char *repertoire = "./images/";
         strcat(repertoire, chemin);
      */
-    fichier = fopen("./images/file.txt", "w");
+    char ch;
+    fichier = fopen("./images/file.txt", "wb");
     
     char* recu;
     strcat(recu, "");
     while (read(socket, buffer, T_BUFF)) {
-        //strcat(recu, buffer);
-        printf("Reçu: %s\n", buffer);
         fputs(buffer, fichier);
-        //create_fichier("mon_fichier", "w", buffer);
     }
 
-    
+    //lire le contenu du fichier et en deduire le nom du fichier et le contenu
+    //puis renommer le fichier
+    while ((ch = fgetc(fichier)) != EOF) {
+        strcat(buffer, &ch);
+    }
+
+    recompose(buffer, img);
 
     fclose(fichier);
     //printf("Reçu: %s\n", recu);
@@ -205,9 +210,8 @@ void create_fichier(char *chemin, char *mode, char *buffer) {
     FILE * fichier = NULL;
     char *repertoire = "./images/";
     strcat(repertoire, chemin);
-    fichier = fopen("./images/file.txt", mode);
+    fichier = fopen(chemin, mode);
 
-    printf("fichier bien cree");
     /* fopen() return NULL if last operation was unsuccessful */
     if (fichier == NULL) {
         /* File not created hence exit */
@@ -225,7 +229,7 @@ void envoiFichier(int socket, char *cheminFichier, char *buffer) {
     char ch;
     int i = 0;
 
-    if ((fichier = fopen(cheminFichier, "r")) == NULL) {
+    if ((fichier = fopen(cheminFichier, "rb")) == NULL) {
         perror("fopen");
         exit(-1);
     }
@@ -258,13 +262,22 @@ void envoiFichier(int socket, char *cheminFichier, char *buffer) {
     //ecrire dans la socket serveur
 }
 
-void recompose(char buffer_from_server[], image img[1]) {
+void recompose(char *buffer_from_server, image img) {
+    FILE * fichier = NULL;
     char * pch;
 
     pch = strtok(buffer_from_server, ":");
-    strcpy(img[0].nom_fichier, pch);
+    strcpy(img.nom_fichier, pch);
 
     pch = strtok(NULL, ":");
-    strcpy(img[0].contenu_fichier, pch);
+    strcpy(img.contenu_fichier, pch);
+
+    //create_fichier(img.nom_fichier, "w", img.contenu_fichier);
+
+    fichier = fopen(img.nom_fichier, "wb");
+    fputs(img.contenu_fichier, fichier);
+    printf("Le fichier %s a été reçu\n", img.nom_fichier);
+
+    fclose(fichier);
 }
 
