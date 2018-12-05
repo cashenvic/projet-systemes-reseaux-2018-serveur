@@ -25,6 +25,14 @@
 #define MAX_CLIENTS 10
 #define T_BUFF 1024
 
+/** @brief Represente une image avec le nom et le contenu du fichier
+ *  @struct
+ **/
+typedef struct {
+    char nom_fichier[256];
+    char contenu_fichier[1000];
+} image;
+
 //_(°_°)_Tous les prototypes devront finir dans des fichiers headers (*.h)
 
 /** @brief Cree un processus fils qui se chargera de traiter la demande du client
@@ -53,6 +61,20 @@ void receptionFichier(int socket, char *buffer);
  *  @return void
  **/
 void envoiFichier(int socket, char *cheminFichier, char *buffer);
+
+/** @brief cree un fichier et l'ouvre selon le mode donné en paramètre
+ *  @param char *chemin : nom du fichier qu'il doit creer et ouvrir
+ *  @param char *mode : mode d'ouverture du fichier
+ *  @return void
+ **/
+void create_fichier(char *chemin, char *mode, char *buffer);
+
+/** @brief Recompse une chaine reçu depuis la socket
+ *  @param char *buffer_from_server : contenu reçu du socket
+ *  @param image img : fichier dans lequel le fichier recompsé sera mis
+ *  @return void
+ **/
+void recompose(char buffer_from_server[], image img[1]);
 
 void end_of_service() {
     wait(NULL);
@@ -109,6 +131,7 @@ int main(int argc, char** argv) {
         }
         creation_process(socket_client, socket_server);
     }
+    close(socket_server);
     return (EXIT_SUCCESS);
 }
 
@@ -118,8 +141,8 @@ void creation_process(int socket_client, int socket_server) {
             perror("fork");
             exit(-1);
         case 0:
-            servir_client(socket_client);
             close(socket_server);
+            servir_client(socket_client);
             exit(0);
         default:
             //fermer la socket de service
@@ -130,12 +153,15 @@ void creation_process(int socket_client, int socket_server) {
 void servir_client(int socket_client) {
     int n;
     char buffer[T_BUFF];
+    printf("connexion etablie\n");
     //recuperer la requete du client soit Demande d'image ou envoi d'image
     read(socket_client, &n, sizeof (int));
     
     if (n == 2) {
-        printf("\nen attente d'un fichier\n");
+        printf("\nEn attente d'un fichier\n");
+        //read(socket_client, &n, sizeof (int));
         receptionFichier(socket_client, buffer);
+        //construction du nom fichier (chemin) à creer à partir la construction Zohir
     } else if (n == 1) {
         printf("envoi d'un fichier\n");
         envoiFichier(socket_client, "djeliba.png", buffer);
@@ -152,13 +178,45 @@ void sendToClient(int socket, char *buffer) {
 }
 
 void receptionFichier(int socket, char *buffer) {
+    FILE * fichier = NULL;
+    /*
+        char *repertoire = "./images/";
+        strcat(repertoire, chemin);
+     */
+    fichier = fopen("./images/file.txt", "w");
+    
     char* recu;
+    strcat(recu, "");
     while (read(socket, buffer, T_BUFF)) {
         //strcat(recu, buffer);
         printf("Reçu: %s\n", buffer);
+        fputs(buffer, fichier);
+        //create_fichier("mon_fichier", "w", buffer);
     }
-    printf("Reçu: %s\n", recu);
+
+    
+
+    fclose(fichier);
+    //printf("Reçu: %s\n", recu);
     //doit appeler la verification d'iamges
+}
+
+void create_fichier(char *chemin, char *mode, char *buffer) {
+    FILE * fichier = NULL;
+    char *repertoire = "./images/";
+    strcat(repertoire, chemin);
+    fichier = fopen("./images/file.txt", mode);
+
+    printf("fichier bien cree");
+    /* fopen() return NULL if last operation was unsuccessful */
+    if (fichier == NULL) {
+        /* File not created hence exit */
+        printf("Unable to create file.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    fputs(buffer, fichier);
+    fclose(fichier);
 }
 
 void envoiFichier(int socket, char *cheminFichier, char *buffer) {
@@ -199,3 +257,14 @@ void envoiFichier(int socket, char *cheminFichier, char *buffer) {
 
     //ecrire dans la socket serveur
 }
+
+void recompose(char buffer_from_server[], image img[1]) {
+    char * pch;
+
+    pch = strtok(buffer_from_server, ":");
+    strcpy(img[0].nom_fichier, pch);
+
+    pch = strtok(NULL, ":");
+    strcpy(img[0].contenu_fichier, pch);
+}
+
