@@ -132,10 +132,11 @@ void servir_client(int socket_client) {
     char buffer[T_BUFF];
     //recuperer la requete du client soit Demande d'image ou envoi d'image
     read(socket_client, &n, sizeof (int));
-    if (n == 1) {
-        printf("en attente d'un fichier\n");
+    
+    if (n == 2) {
+        printf("\nen attente d'un fichier\n");
         receptionFichier(socket_client, buffer);
-    } else if (n == 2) {
+    } else if (n == 1) {
         printf("envoi d'un fichier\n");
         envoiFichier(socket_client, "djeliba.png", buffer);
     } else {
@@ -153,11 +154,10 @@ void sendToClient(int socket, char *buffer) {
 void receptionFichier(int socket, char *buffer) {
     char* recu;
     while (read(socket, buffer, T_BUFF)) {
-        strcat(recu, buffer);
-        printf("Reçu wr: %s", recu);
-        printf("Reçu b: %s", buffer);
+        //strcat(recu, buffer);
+        printf("Reçu: %s\n", buffer);
     }
-    printf("Reçu: %s", recu);
+    printf("Reçu: %s\n", recu);
     //doit appeler la verification d'iamges
 }
 
