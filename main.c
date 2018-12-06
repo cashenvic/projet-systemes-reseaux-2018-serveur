@@ -76,6 +76,14 @@ void create_fichier(char *chemin, char *mode, char *buffer);
  **/
 void recompose(char *buffer_from_server, image img);
 
+/** @brief Visualiser une image 
+ *  @param char * image 
+ 
+ *  @return void
+ **/
+void visualiser_image(char* image);
+
+
 void end_of_service() {
     wait(NULL);
 }
@@ -276,8 +284,33 @@ void recompose(char *buffer_from_server, image img) {
 
     fichier = fopen(img.nom_fichier, "wb");
     fputs(img.contenu_fichier, fichier);
+
+    char image[50];
+    strcpy(image, img.nom_fichier);
+
+    visualiser_image(image);
+
     printf("Le fichier %s a été reçu\n", img.nom_fichier);
 
     fclose(fichier);
+}
+
+void visualiser_image(char* image) {
+    char *com[3] = {"xdg-open", image, (char *) 0};
+    /* on forke le processus */
+    switch (fork()) {
+        case -1:
+            perror("fork erreur");
+            exit(-1);
+        case 0:
+            //comportement du fils
+            if (execvp("xdg-open", com) == -1) {
+                perror("execvp");
+                exit(-1);
+            }
+        default:
+            while (wait(NULL) != -1);
+    }
+
 }
 
