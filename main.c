@@ -33,6 +33,11 @@ typedef struct {
     char contenu_fichier[1000];
 } image;
 
+typedef struct {
+    char info[50];
+} Mime;
+
+
 //_(°_°)_Tous les prototypes devront finir dans des fichiers headers (*.h)
 
 /** @brief Cree un processus fils qui se chargera de traiter la demande du client
@@ -82,6 +87,20 @@ void recompose(char *buffer_from_server, image img);
  *  @return void
  **/
 void visualiser_image(char* image);
+
+/** @brief Extrait le mimetype d'image 
+ *  @param char * nom_fichier 
+ *  @param Mime tab 
+ *  @param int* size 
+ *  @return void
+ **/
+void Mimetype(char nom_fichier[30], Mime tab[50], int* size);
+
+/** @brief comapare le mimetype d'une image avec celles trouvées da le fichier mimes
+ *  @param char * fichier
+ *  @return void
+ **/
+void compare_type(char *fichier);
 
 
 void end_of_service() {
@@ -312,5 +331,61 @@ void visualiser_image(char* image) {
             while (wait(NULL) != -1);
     }
 
+}
+
+void Mimetype(char nom_fichier[30], Mime tab[50], int* size) {
+    FILE * fPtr = NULL;
+    int i = 0;
+
+    char str[50];
+
+    fPtr = fopen(nom_fichier, "r");
+
+    if (fPtr == NULL) {
+        perror("fopen");
+        exit(-1);
+    }
+
+
+    while (fgets(str, 50, fPtr) != NULL) {
+        strcpy(tab[i].info, str);
+        i++;
+    }
+    *size = i;
+}
+
+void compare_type(char *fichier) {
+    //file -i :espace ext
+    //comparer resultat avec le tableau de type mime...
+    int p[2];
+    pipe(p);
+    char buf[50];
+    char *com[] = {"file", "-i", fichier, (char *) 0};
+    char * ptr;
+    char* tmp = NULL;
+
+    switch (fork()) {
+        case -1:
+            perror("fork erreur");
+            exit(-1);
+        case 0:
+            dup2(p[1], STDOUT_FILENO);
+            close(p[1]);
+            close(p[0]);
+            execvp("/usr/bin/file", com);
+            exit(0);
+        default:
+            close(p[1]);
+            read(p[0], buf, sizeof (buf));
+            printf("==> %s", buf);
+
+            ptr = strtok(buf, ":"); //initialisation (et en même temps, prend la première occurence)
+            //printf ("\"%s\"\n",ptr);
+
+            ptr = strtok(NULL, ":"); // le suivant de : 
+            tmp = strtok(ptr, ";");
+            printf("\"%s\"\n", tmp);
+            wait(NULL);
+    }
 }
 
