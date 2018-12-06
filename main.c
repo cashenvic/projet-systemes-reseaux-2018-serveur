@@ -21,8 +21,10 @@
 #include <unistd.h>
 #include <string.h>
 
+/*
 #define N_PORT 20000
 #define MAX_CLIENTS 10
+ */
 #define T_BUFF 1000*1024
 
 /** @brief Represente une image avec le nom et le contenu du fichier
@@ -36,7 +38,6 @@ typedef struct {
 typedef struct {
     char info[50];
 } Mime;
-
 
 //_(°_°)_Tous les prototypes devront finir dans des fichiers headers (*.h)
 
@@ -107,6 +108,12 @@ void end_of_service() {
     wait(NULL);
 }
 
+void affiche_aide() {
+    printf("Usage: \tserveur <numero port> <nombre max clients>\n");
+    printf("\tExemple: serveur 20000 15\n");
+    exit(-1);
+}
+
 int main(int argc, char** argv) {
     //declaration des variables
     int socket_server, socket_client;
@@ -116,6 +123,11 @@ int main(int argc, char** argv) {
     struct sigaction sign; /* déclaration d'une variable de type struct sigaction */
     struct sockaddr_in server_add, client_add;
 
+    if (argc != 3) {
+        affiche_aide();
+    }
+    const int N_PORT = atoi(argv[1]);
+    const int MAX_CLIENTS = atoi(argv[2]);
 
     sign.sa_handler = end_of_service; /* le champ sa_handler de cette variable reçoit (le nom de) la fonction sur laquellele déroutement devra se faire */
     sign.sa_flags = SA_RESTART; /* cela permettra d'eviter l'interruption de "accept" par la reception du SIGCHLD */
