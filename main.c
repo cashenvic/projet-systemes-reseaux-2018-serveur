@@ -20,6 +20,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <string.h>
+#include <dirent.h>
 
 /*
 #define N_PORT 20000
@@ -34,6 +35,14 @@ typedef struct {
     char nom_fichier[256];
     char contenu_fichier[1000];
 } image;
+
+/** @brief Respresente un fichier dans le listing des fichiers d'un repertoire
+ *  @struct
+ **/
+typedef struct {
+    char info[256];
+    int taille;
+} chemin_de_fichier;
 
 typedef struct {
     char info[50];
@@ -103,6 +112,18 @@ void Mimetype(char nom_fichier[30], Mime tab[50], int* size);
  **/
 void compare_type(char *fichier);
 
+/** @brief Affiche la liste des fichiers dans le répértoire courant
+ *  @param 
+ *  @return char*
+ **/
+void lister_image(char *repertoire, chemin_de_fichier tab[10], int *taille);
+
+/** @brief Conversion struct -> char*; char* -> struct
+ *  @param char *cheminFichier: chemin du fichier à ouvrir
+ *  @param char* mode: mode d'ouverture du fichier
+ *  @return FILE: Retourne le fichier qu'il ouvert
+ **/
+void chaine_structure_liste(char p2[120], chemin_de_fichier tab [10], int taille, int choix);
 
 void end_of_service() {
     wait(NULL);
@@ -192,7 +213,7 @@ void creation_process(int socket_client, int socket_server) {
 void servir_client(int socket_client) {
     int n;
     char buffer[T_BUFF];
-    printf("connexion etablie\n");
+    printf("connexion etablie avec %d\n", socket_client);
     //recuperer la requete du client soit Demande d'image ou envoi d'image
     read(socket_client, &n, sizeof (int));
     
@@ -202,7 +223,14 @@ void servir_client(int socket_client) {
         receptionFichier(socket_client, buffer);
         //construction du nom fichier (chemin) à creer à partir la construction Zohir
     } else if (n == 1) {
+        chemin_de_fichier mes_images[20];
+        int taille_mimg = 0;
         printf("envoi d'un fichier\n");
+        lister_image("./images/", mes_images, &taille_mimg);
+        
+        //envoyer le tableau ainsi construit
+        //recevoir le(s) choix du client
+        //envoyer image(s) correspondante(s)
         envoiFichier(socket_client, "djeliba.png", buffer);
     } else {
         //envoi code d'ereur??
@@ -401,3 +429,51 @@ void compare_type(char *fichier) {
     }
 }
 
+void lister_image(char *repertoire, chemin_de_fichier tab[10], int *taille) {
+
+    int i = 0;
+    struct dirent *lecture;
+    DIR *reponse;
+    reponse = opendir(repertoire);
+    if (reponse != NULL) {
+        printf("\n \nListe des fichiers du repertoire d'image: \n");
+        while ((lecture = readdir(reponse))) {
+            //Amelioration: essayer de pas tenir compte de .. et .
+            strcpy(tab[i].info, "");
+            //strcat(tab[i].info, repertoire);
+            strcat(tab[i].info, lecture->d_name);
+            struct stat st;
+            i++;
+        }
+        *taille = i;
+        i = 0;
+        closedir(reponse), reponse = NULL;
+        while (i < *taille) {
+            printf("\n%d- %s \n", i, tab[i].info);
+            i++;
+        }
+    }
+}
+
+void chaine_structure_liste(char p2[120], chemin_de_fichier tab [10], int taille, int choix) {
+    int i = 0;
+    char str[10];
+    switch (choix) {
+        case 1: /*Choix de Structure vers Chaine de caractere*/
+
+            for (i; i < taille; i++) {
+                sprintf(str, "%d", i);
+                strcat(p2, str);
+                strcat(p2, "|");
+                strcat(p2, tab[i].info);
+                if (i < taille - 1)
+                    strcat(p2, ":");
+            }
+            break;
+        case 2: /*Choix de chaine de caractaire vers Structure*/
+
+            break;
+        default: printf("--erreur de choix !!\n");
+            break;
+    }
+}
