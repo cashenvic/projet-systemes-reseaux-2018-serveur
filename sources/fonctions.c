@@ -106,7 +106,7 @@ void receptionFichier(int socket, char *buffer) {
 
         //liberation/reinitialisation des ressources
         memset(tampon, '0', 512);
-        memset(nomF, '0', 128);
+        strcpy(nomF, "");
         printf("fichier %s recu\n", nomF);
         lu = 0;
         paquetRec = 0;
