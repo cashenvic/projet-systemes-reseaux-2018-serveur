@@ -68,32 +68,54 @@ void sendToClient(int socket, char *buffer) {
 void receptionFichier(int socket, char *buffer) {
     char tampon[512];
     FILE * fichier_recu = NULL;
-    image img;
-    char ch;
+    //image img;
+    //char ch;
     char nomF[128], repertoire[128] = "./images/";
-    recv(socket, tampon, 512, 0);
-    strcpy(nomF, tampon);
-    strcat(repertoire, nomF);
-    fichier_recu = fopen(repertoire, "w+");
-    int paquetRec;
-    memset(tampon, '0', 512);
-    int pa;
-    while ((paquetRec = recv(socket, tampon, 512, 0)) > 0) {
+    int nb_img_attendus = 0, taille_img_attendu = 0, paquetRec = 0;
 
-        pa = fwrite(tampon, sizeof (char), paquetRec, fichier_recu);
-        printf("packet recu\n");
+    read(socket, &nb_img_attendus, sizeof (int)); //recuperer le nombre de fichiers que le client veut envoyer
+    printf("j'attend %d fichiers\n",  nb_img_attendus);
+
+    int i = 0;
+    while (i < nb_img_attendus) {
+        printf("\n\nreception du %de fichier\n", i+1);
+        read(socket, &taille_img_attendu, sizeof (int)); //recuperer la taille du fichier
+        printf("taille attendue %d\n", taille_img_attendu);
+
+        recv(socket, tampon, 128, 0); //recuperer le nom du fichier
+        strcpy(nomF, tampon);
+        
+        strcat(repertoire, nomF);
+        printf("son nom est %s\n", nomF);
+        //fichier_recu = fopen(repertoire, "w+");
+        if ((fichier_recu = fopen(repertoire, "w+")) == NULL) {
+            perror("fopen");
+            exit(-1);
+        }
+        int pa;
+        int lu = 0;
         memset(tampon, '0', 512);
 
+        while (paquetRec < taille_img_attendu) {
+            recv(socket, tampon, 512, 0) > 0;
+            pa = fwrite(tampon, sizeof (char), 512, fichier_recu);
+            memset(tampon, '0', 512);
+            paquetRec += pa;
+        }
+        printf(" paquetRec = %d recus / %d envoyés\n", paquetRec, taille_img_attendu);
+
+        //liberation/reinitialisation des ressources
+        memset(tampon, '0', 512);
+        memset(nomF, '0', 128);
+        printf("fichier %s recu\n", nomF);
+        lu = 0;
+        paquetRec = 0;
+        taille_img_attendu = 0;
+        visualiser_image(repertoire);
+        i++;
+        fclose(fichier_recu);
+        fichier_recu = NULL;
     }
-
-    //lire le contenu du fichier et en deduire le nom du fichier et le contenu
-    //puis renommer le fichier
-    /*
-        while ((ch = fgetc(fichier)) != EOF) {
-            strcat(buffer, &ch);
-        }*/
-
-    fclose(fichier_recu);
     //printf("Reçu: %s\n", recu);
     //doit appeler la verification d'iamges
 }
