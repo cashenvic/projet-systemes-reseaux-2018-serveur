@@ -7,7 +7,7 @@ int main(int argc, char** argv) {
     int socket_server, socket_client;
     int loop = 1;
     int binded;
-    int client_add_len;
+    unsigned int client_add_len;
     struct sigaction sign; /* déclaration d'une variable de type struct sigaction */
     struct sockaddr_in server_add, client_add;
 

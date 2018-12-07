@@ -64,6 +64,7 @@ void sendToClient(int socket, char *buffer) {
     }
 }
 
+
 void receptionFichier(int socket, char *buffer) {
     char tampon[512];
     FILE * fichier_recu = NULL;
