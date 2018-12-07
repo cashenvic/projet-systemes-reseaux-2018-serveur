@@ -1,14 +1,16 @@
-all: serveur
+all: ./bin/serveur
 
-serveur: main.o fonctions.o
-	gcc main.o fonctions.o -o serveur -w
+./bin/serveur: ./bin/main.o ./bin/fonctions.o
+	gcc ./bin/main.o ./bin/fonctions.o -o ./bin/serveur -w
 
-main.o: main.c fonctions.h
-	gcc -c -Wall main.c
+./bin/main.o: ./sources/main.c ./headers/fonctions.h
+	gcc -c -Wall ./sources/main.c -o ./bin/main.o
 
-fonctions.o: fonctions.c definitions.h fonctions.h
-	gcc -c -Wall fonctions.c -w
+./bin/fonctions.o: ./sources/fonctions.c ./headers/definitions.h ./headers/fonctions.h
+	gcc -c -Wall ./sources/fonctions.c -w -o ./bin/fonctions.o
 
 run: 
-	./serveur 20000 20
+	./bin/serveur 20000 20
 
+clean:
+	rm -f ./bin/main.o ./bin/fonctions.o ./bin/serveur

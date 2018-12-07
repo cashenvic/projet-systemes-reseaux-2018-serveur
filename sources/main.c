@@ -1,4 +1,4 @@
-#include "fonctions.h"
+#include "../headers/fonctions.h"
 
 //_(°_°)_Tous les prototypes devront finir dans des fichiers headers (*.h)
 
