@@ -70,8 +70,11 @@ void receptionFichier(int socket, char *buffer) {
     FILE * fichier_recu = NULL;
     image img;
     char ch;
-    fichier_recu = fopen("./images/tests.png", "w+");
-
+    char nomF[128], repertoire[128] = "./images/";
+    recv(socket, tampon, 512, 0);
+    strcpy(nomF, tampon);
+    strcat(repertoire, nomF);
+    fichier_recu = fopen(repertoire, "w+");
     int paquetRec;
     memset(tampon, '0', 512);
     int pa;
