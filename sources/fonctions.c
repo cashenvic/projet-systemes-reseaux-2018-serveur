@@ -35,26 +35,30 @@ void servir_client(int socket_client) {
     char buffer[T_BUFF];
     printf("connexion etablie avec %d\n", socket_client);
     //recuperer la requete du client soit Demande d'image ou envoi d'image
-    read(socket_client, &n, sizeof (int));
+    do {
 
-    if (n == 2) {
-        printf("\nEn attente d'un fichier\n");
-        //read(socket_client, &n, sizeof (int));
-        receptionFichier(socket_client, buffer);
-        //construction du nom fichier (chemin) à creer à partir la construction Zohir
-    } else if (n == 1) {
-        chemin_de_fichier mes_images[20];
-        int taille_mimg = 0;
-        printf("envoi d'un fichier\n");
-        lister_image("./images/", mes_images, &taille_mimg);
+        printf("\nAttente de requete\n");
+        read(socket_client, &n, sizeof (int));
 
-        //envoyer le tableau ainsi construit
-        //recevoir le(s) choix du client
-        //envoyer image(s) correspondante(s)
-        envoiFichier(socket_client, "djeliba.png", buffer);
-    } else {
-        //envoi code d'ereur??
-    }
+        if (n == 2) {
+            printf("\nRequete d'upload recu. En attente de fichier(s)\n");
+            receptionFichier(socket_client, buffer);
+        } else if (n == 1) {
+            printf("\nRequete de download recu. Procedure d'envoi de fichier(s)\n");
+            chemin_de_fichier mes_images[20];
+            int taille_mimg = 0;
+            printf("envoi d'un fichier\n");
+            lister_image("./images/", mes_images, &taille_mimg);
+
+            //envoyer le tableau ainsi construit
+            //recevoir le(s) choix du client
+            //envoyer image(s) correspondante(s)
+            envoiFichier(socket_client, "djeliba.png", buffer);
+        } else if (n == 0) {
+            printf("\nFin de la connexion\n");
+            break;
+        }
+    } while ( n != 0);
 }
 
 void sendToClient(int socket, char *buffer) {
