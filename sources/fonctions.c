@@ -46,14 +46,30 @@ void servir_client(int socket_client) {
         } else if (n == 1) {
             printf("\nRequete de download recu. Procedure d'envoi de fichier(s)\n");
             chemin_de_fichier mes_images[20];
-            int taille_mimg = 0;
-            printf("envoi d'un fichier\n");
+            chemin_de_fichier images_choisies[20];
+            int taille_mimg = 0, taille_mimg_choisies = 0;
+            
+            printf("\n\nEnvoi de la liste des images du serveur\n");
             lister_image("./images/", mes_images, &taille_mimg);
-
-            //envoyer le tableau ainsi construit
+            //envoyer la liste des images au client
+            send(socket_client, mes_images, 2048, 0);
+            //envoyer taille de la liste des images
+            write(socket_client, &taille_mimg, sizeof (int)); 
+            
             //recevoir le(s) choix du client
-            //envoyer image(s) correspondante(s)
-            envoiFichier(socket_client, "djeliba.png", buffer);
+            printf("Attente des choix du client\n");
+            //recperer le nombre d'images demandées
+            read(socket_client, &taille_mimg_choisies, sizeof (int));
+            //recupercer les noms des images choisies
+            recv(socket_client, images_choisies, 2048, 0);
+            printf("Demande de %d fichiers\n", taille_mimg_choisies);
+            
+            //envoyer image(s) correspondante(s):
+            int i = 0;
+            while (i < taille_mimg_choisies) {
+                envoiFichier(socket_client, images_choisies[i].info, buffer);
+                i++;
+            }
         } else if (n == 0) {
             printf("\nFin de la connexion\n");
             break;
@@ -80,45 +96,50 @@ void receptionFichier(int socket, char *buffer) {
     read(socket, &nb_img_attendus, sizeof (int)); //recuperer le nombre de fichiers que le client veut envoyer
     printf("j'attend %d fichiers\n",  nb_img_attendus);
 
-    int i = 0;
-    while (i < nb_img_attendus) {
-        printf("\n\nreception du %de fichier\n", i+1);
-        read(socket, &taille_img_attendu, sizeof (int)); //recuperer la taille du fichier
-        printf("taille attendue %d\n", taille_img_attendu);
+    if (nb_img_attendus > 0){
 
-        recv(socket, tampon, 128, 0); //recuperer le nom du fichier
-        strcpy(nomF, tampon);
-        
-        strcat(repertoire, nomF);
-        printf("son nom est %s\n", nomF);
-        //fichier_recu = fopen(repertoire, "w+");
-        if ((fichier_recu = fopen(repertoire, "w+")) == NULL) {
-            perror("fopen");
-            exit(-1);
-        }
-        int pa;
-        int lu = 0;
-        memset(tampon, '0', 512);
+        int i = 0;
+        while (i < nb_img_attendus) {
+            printf("\n\nreception du %de fichier\n", i+1);
+            read(socket, &taille_img_attendu, sizeof (int)); //recuperer la taille du fichier
+            printf("taille attendue %d\n", taille_img_attendu);
 
-        while (paquetRec < taille_img_attendu) {
-            recv(socket, tampon, 512, 0) > 0;
-            pa = fwrite(tampon, sizeof (char), 512, fichier_recu);
+            recv(socket, tampon, 128, 0); //recuperer le nom du fichier
+            strcpy(nomF, tampon);
+            
+            strcpy(repertoire, "./images/");
+            strcat(repertoire, nomF);
+            printf("son nom est %s\n", nomF);
+            //fichier_recu = fopen(repertoire, "w+");
+            if ((fichier_recu = fopen(repertoire, "w+")) == NULL) {
+                perror("fopen");
+                exit(-1);
+            }
+            int pa;
+            int lu = 0;
             memset(tampon, '0', 512);
-            paquetRec += pa;
-        }
-        printf(" paquetRec = %d recus / %d envoyés\n", paquetRec, taille_img_attendu);
 
-        //liberation/reinitialisation des ressources
-        memset(tampon, '0', 512);
-        strcpy(nomF, "");
-        printf("fichier %s recu\n", nomF);
-        lu = 0;
-        paquetRec = 0;
-        taille_img_attendu = 0;
-        visualiser_image(repertoire);
-        i++;
-        fclose(fichier_recu);
-        fichier_recu = NULL;
+            while (paquetRec < taille_img_attendu) {
+                recv(socket, tampon, 512, 0) > 0;
+                pa = fwrite(tampon, sizeof (char), 512, fichier_recu);
+                memset(tampon, '0', 512);
+                paquetRec += pa;
+            }
+            compare_type(fichier_recu);
+            printf(" paquetRec = %d recus / %d envoyés\n", paquetRec, taille_img_attendu);
+
+            //liberation/reinitialisation des ressources
+            memset(tampon, '0', 512);
+            printf("fichier %s recu\n", nomF);
+            strcpy(nomF, "");
+            lu = 0;
+            paquetRec = 0;
+            taille_img_attendu = 0;
+            //visualiser_image(repertoire);
+            i++;
+            fclose(fichier_recu);
+            fichier_recu = NULL;
+        }
     }
     //printf("Reçu: %s\n", recu);
     //doit appeler la verification d'iamges
@@ -142,42 +163,35 @@ void create_fichier(char *chemin, char *mode, char *buffer) {
 }
 
 void envoiFichier(int socket, char *cheminFichier, char *buffer) {
-    //lis le fichier à partir du rep client
     FILE *fichier;
-    char ch;
-    int i = 0;
+    char tampon[512];
+    char repertoire[256] = "./images/";
+    int paquetEnv = 0;
 
-    if ((fichier = fopen(cheminFichier, "rb")) == NULL) {
+    strcat(repertoire, cheminFichier);
+    printf("++++Le chemin du fichier %s\n", repertoire);
+    if ((fichier = fopen(repertoire, "r")) == NULL) {
         perror("fopen");
         exit(-1);
     }
-    printf("successfull opening of file %s\n", cheminFichier);
 
-    while ((ch = fgetc(fichier)) != EOF) {
-        printf("%c\n", ch);
-        printf("%d\n", i);
-        i++;
+    fseek(fichier, 0, SEEK_END);
+    int taille_image = ftell(fichier);
+    write(socket, &taille_image, sizeof (int)); //envoi de la taille du fichier
+
+    memset(tampon, '0', 512);
+    fseek(fichier, 0, SEEK_SET);
+
+    int lu = 0;
+    while (paquetEnv < taille_image) {
+        lu = fread(tampon, sizeof (char), 512, fichier);
+        send(socket, tampon, 512, 0);
+        paquetEnv += lu;
+        memset(tampon, '0', 512);
     }
-    while ((ch = fgetc(fichier)) != EOF) {
-        strcat(buffer, &ch);
-        if ((i == T_BUFF - 1)) {
-            sendToClient(socket, buffer);
-            printf("Envoyé: %s\n", buffer);
-            i = 0;
-            strcpy(buffer, "");
-            //strcat(buffer, &ch);
-        }
-        i++;
-    }
-    if (strcmp(buffer, "") != 0) {
-        sendToClient(socket, buffer);
-        printf("Envoyé: %s\n", buffer);
-        strcpy(buffer, "");
-    }
+    printf("paquetRec = %d envoyés / %d\n", paquetEnv, taille_image);
 
     fclose(fichier);
-
-    //ecrire dans la socket serveur
 }
 
 void recompose(char *buffer_from_server, image img) {
@@ -217,7 +231,7 @@ void visualiser_image(char* image) {
             //comportement du fils
             if (execvp("xdg-open", com) == -1) {
                 perror("execvp");
-                exit(-1);
+                exit(0);
             }
         default:
             while (wait(NULL) != -1);
@@ -244,6 +258,7 @@ void Mimetype(char nom_fichier[30], Mime tab[50], int* size) {
         i++;
     }
     *size = i;
+    fclose(fPtr);
 }
 
 void compare_type(char *fichier) {
@@ -256,6 +271,7 @@ void compare_type(char *fichier) {
     char * ptr;
     char* tmp = NULL;
 
+    strcpy(buf, "");
     switch (fork()) {
         case -1:
             perror("fork erreur");
@@ -288,7 +304,6 @@ void lister_image(char *repertoire, chemin_de_fichier tab[10], int *taille) {
     DIR *reponse;
     reponse = opendir(repertoire);
     if (reponse != NULL) {
-        printf("\n \nListe des fichiers du repertoire d'image: \n");
         while ((lecture = readdir(reponse))) {
             //Amelioration: essayer de pas tenir compte de .. et .
             strcpy(tab[i].info, "");
@@ -300,10 +315,6 @@ void lister_image(char *repertoire, chemin_de_fichier tab[10], int *taille) {
         *taille = i;
         i = 0;
         closedir(reponse), reponse = NULL;
-        while (i < *taille) {
-            printf("\n%d- %s \n", i, tab[i].info);
-            i++;
-        }
     }
 }
 
