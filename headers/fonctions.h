@@ -72,9 +72,9 @@ void Mimetype(char nom_fichier[30], Mime tab[50], int* size);
 
 /** @brief comapare le mimetype d'une image avec celles trouvées da le fichier mimes
  *  @param char * fichier
- *  @return void
+ *  @return int
  **/
-void compare_type(char *fichier);
+int compare_type(char *fichier);
 
 /** @brief Affiche la liste des fichiers dans le répértoire courant
  *  @param 

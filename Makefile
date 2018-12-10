@@ -10,7 +10,7 @@ all: ./bin/serveur
 	gcc -c -Wall ./sources/fonctions.c -w -o ./bin/fonctions.o
 
 run: 
-	./bin/serveur 20000 20
+	./bin/serveur 2000 20
 
 clean:
 	rm -f ./bin/main.o ./bin/fonctions.o ./bin/serveur

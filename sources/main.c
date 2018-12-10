@@ -27,7 +27,8 @@ int main(int argc, char** argv) {
     client_add.sin_addr.s_addr = htonl(INADDR_ANY);
 
     socket_server = socket(AF_INET, SOCK_STREAM, 0);
-
+    
+    system("clear");
     if (socket_server == -1) {
         perror("socketServ");
         exit(-1);

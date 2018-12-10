@@ -33,7 +33,7 @@ void creation_process(int socket_client, int socket_server) {
 void servir_client(int socket_client) {
     int n;
     char buffer[T_BUFF];
-    printf("connexion etablie avec %d\n", socket_client);
+    printf("\nConnexion etablie avec %d\n\n", socket_client);
     //recuperer la requete du client soit Demande d'image ou envoi d'image
     do {
 
@@ -41,9 +41,11 @@ void servir_client(int socket_client) {
         read(socket_client, &n, sizeof (int));
 
         if (n == 2) {
-            printf("\nRequete d'upload recu. En attente de fichier(s)\n");
+            system("clear");
+            printf("\nRequete d'upload recue. En attente de fichier(s)\n");
             receptionFichier(socket_client, buffer);
         } else if (n == 1) {
+            system("clear");
             printf("\nRequete de download recu. Procedure d'envoi de fichier(s)\n");
             chemin_de_fichier mes_images[20];
             chemin_de_fichier images_choisies[20];
@@ -67,23 +69,17 @@ void servir_client(int socket_client) {
             //envoyer image(s) correspondante(s):
             int i = 0;
             while (i < taille_mimg_choisies) {
+                printf("\n");
                 envoiFichier(socket_client, images_choisies[i].info, buffer);
                 i++;
             }
-        } else if (n == 0) {
+        } else if (n == 0 || n == -1) {
+            n = 0;
             printf("\nFin de la connexion\n");
             break;
         }
     } while ( n != 0);
 }
-
-void sendToClient(int socket, char *buffer) {
-    if (write(socket, buffer, strlen(buffer)) == -1) {
-        perror("send");
-        exit(-1);
-    }
-}
-
 
 void receptionFichier(int socket, char *buffer) {
     char tampon[512];
@@ -125,12 +121,14 @@ void receptionFichier(int socket, char *buffer) {
                 memset(tampon, '0', 512);
                 paquetRec += pa;
             }
-            compare_type(fichier_recu);
+
             printf(" paquetRec = %d recus / %d envoyés\n", paquetRec, taille_img_attendu);
+
+            int recevable = compare_type(repertoire);
+            write(socket, &recevable, sizeof (int));
 
             //liberation/reinitialisation des ressources
             memset(tampon, '0', 512);
-            printf("fichier %s recu\n", nomF);
             strcpy(nomF, "");
             lu = 0;
             paquetRec = 0;
@@ -143,23 +141,6 @@ void receptionFichier(int socket, char *buffer) {
     }
     //printf("Reçu: %s\n", recu);
     //doit appeler la verification d'iamges
-}
-
-void create_fichier(char *chemin, char *mode, char *buffer) {
-    FILE * fichier = NULL;
-    char *repertoire = "./images/";
-    strcat(repertoire, chemin);
-    fichier = fopen(repertoire, mode);
-
-    /* fopen() return NULL if last operation was unsuccessful */
-    if (fichier == NULL) {
-        /* File not created hence exit */
-        printf("Unable to create file.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    fputs(buffer, fichier);
-    fclose(fichier);
 }
 
 void envoiFichier(int socket, char *cheminFichier, char *buffer) {
@@ -189,33 +170,7 @@ void envoiFichier(int socket, char *cheminFichier, char *buffer) {
         paquetEnv += lu;
         memset(tampon, '0', 512);
     }
-    printf("paquetRec = %d envoyés / %d\n", paquetEnv, taille_image);
-
-    fclose(fichier);
-}
-
-void recompose(char *buffer_from_server, image img) {
-    FILE * fichier = NULL;
-    char * pch;
-
-    pch = strtok(buffer_from_server, ":");
-    strcpy(img.nom_fichier, pch);
-
-    pch = strtok(NULL, ":");
-    strcpy(img.contenu_fichier, pch);
-
-    //create_fichier(img.nom_fichier, "w", img.contenu_fichier);
-    char *chemin = "./images/";
-    strcat(chemin, img.nom_fichier);
-    fichier = fopen(chemin, "wb");
-    fputs(img.contenu_fichier, fichier);
-
-    char image[50];
-    strcpy(image, img.nom_fichier);
-
-    visualiser_image(image);
-
-    printf("Le fichier %s a été reçu\n", img.nom_fichier);
+    printf("paquetRec = %d envoyés / %d\n\n", paquetEnv, taille_image);
 
     fclose(fichier);
 }
@@ -244,6 +199,7 @@ void Mimetype(char nom_fichier[30], Mime tab[50], int* size) {
     int i = 0;
 
     char str[50];
+    //strcpy(str, "");
 
     fPtr = fopen(nom_fichier, "r");
 
@@ -251,7 +207,6 @@ void Mimetype(char nom_fichier[30], Mime tab[50], int* size) {
         perror("fopen");
         exit(-1);
     }
-
 
     while (fgets(str, 50, fPtr) != NULL) {
         strcpy(tab[i].info, str);
@@ -261,15 +216,17 @@ void Mimetype(char nom_fichier[30], Mime tab[50], int* size) {
     fclose(fPtr);
 }
 
-void compare_type(char *fichier) {
+int compare_type(char *cheminFichier) {
     //file -i :espace ext
     //comparer resultat avec le tableau de type mime...
     int p[2];
     pipe(p);
     char buf[50];
-    char *com[] = {"file", "-i", fichier, (char *) 0};
+    char *com[] = {"file", "-i", cheminFichier, (char *) 0};
     char * ptr;
-    char* tmp = NULL;
+    char* mime_extrait = NULL, *fichier_mime = "mimetypes.txt";
+    Mime tab_mimes[50];
+    int taille_Mime = 0;
 
     strcpy(buf, "");
     switch (fork()) {
@@ -285,14 +242,33 @@ void compare_type(char *fichier) {
         default:
             close(p[1]);
             read(p[0], buf, sizeof (buf));
-            printf("==> %s", buf);
 
-            ptr = strtok(buf, ":"); //initialisation (et en même temps, prend la première occurence)
-            //printf ("\"%s\"\n",ptr);
-
-            ptr = strtok(NULL, ":"); // le suivant de : 
-            tmp = strtok(ptr, ";");
-            printf("\"%s\"\n", tmp);
+            ptr = strtok(buf, " "); //initialisation (et en même temps, prend la première occurence)
+            
+            ptr = strtok(NULL, ":"); // le suivant de :
+            mime_extrait = strtok(ptr, ";");
+            strcat(mime_extrait, "\n");
+            printf("Le type mime de ce fichier est %s\n", mime_extrait);
+            
+            Mimetype(fichier_mime, tab_mimes, &taille_Mime);
+            int i = 0, found = -1, comp = -1;
+            while (i < taille_Mime && found < 0) {
+                comp = strcmp(mime_extrait, tab_mimes[i].info);
+                if (comp == 0) {                    
+                    found = 1;
+                }
+                i++;
+            }
+            
+            if (found < 0){
+                if (unlink(cheminFichier) == -1){
+                    perror("unlink");
+                }
+                printf("Le fichier %s n'est pas recevable, il sera supprimé\n", cheminFichier);
+            } else {
+                printf("Le fichier %s a été reçu et enregistré\n", cheminFichier);
+            }
+            return found;
             wait(NULL);
     }
 }
@@ -315,28 +291,5 @@ void lister_image(char *repertoire, chemin_de_fichier tab[10], int *taille) {
         *taille = i;
         i = 0;
         closedir(reponse), reponse = NULL;
-    }
-}
-
-void chaine_structure_liste(char p2[120], chemin_de_fichier tab [10], int taille, int choix) {
-    int i = 0;
-    char str[10];
-    switch (choix) {
-        case 1: /*Choix de Structure vers Chaine de caractere*/
-
-            for (i; i < taille; i++) {
-                sprintf(str, "%d", i);
-                strcat(p2, str);
-                strcat(p2, "|");
-                strcat(p2, tab[i].info);
-                if (i < taille - 1)
-                    strcat(p2, ":");
-            }
-            break;
-        case 2: /*Choix de chaine de caractaire vers Structure*/
-
-            break;
-        default: printf("--erreur de choix !!\n");
-            break;
     }
 }
